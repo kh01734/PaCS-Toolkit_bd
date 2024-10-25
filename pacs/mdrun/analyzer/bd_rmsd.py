@@ -82,13 +82,22 @@ class BD_RMSD(SuperAnalyzer):
         sel3_arr = back_trj.top.select(settings.selection3)
         sel4_arr = back_trj.top.select(settings.selection4)
 
+        fore_trj.superpose(
+            back_trj,
+            0,
+            atom_indices=sel1_arr,
+            ref_atom_indices=sel3_arr,
+        )
+
+        back_trj.superpose(
+            back_trj,
+            0,
+            atom_indices=sel3_arr,
+            ref_atom_indices=sel3_arr,
+        )
+
         for frame_i_back in range(n_frames_back):
-            fore_trj.superpose(
-                back_trj,
-                frame_i_back,
-                atom_indices=sel1_arr,
-                ref_atom_indices=sel3_arr,
-            )
+
             # もうちょい効率化できるかも
             tmp_rmsds = np.sqrt(
                 3
