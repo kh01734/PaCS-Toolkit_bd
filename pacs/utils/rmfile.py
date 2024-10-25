@@ -10,7 +10,10 @@ LOGGER = generate_logger(__name__)
 def detect_n_replica(settings: MDsettings, cycle: int) -> int:
     # detect number of replicas
     for replica in range(1, 1000):
-        replica_dir = Path(settings.each_replica(_cycle=cycle, _replica=replica))
+        replica_dir = Path(settings.each_replica(
+            _cycle=cycle, _direction=direction, _replica=replica
+            )
+        )
         if not replica_dir.exists():
             n_replica = replica - 1
             break
@@ -42,7 +45,9 @@ def run_rm(file_name: str) -> None:
 def rmfile(settings: MDsettings, cycle: int) -> None:
     n_replica = detect_n_replica(settings, cycle)
     for replica in range(1, n_replica + 1):
-        dir = settings.each_replica(_cycle=cycle, _replica=replica)
+        dir = settings.each_replica(
+            _cycle=cycle, _direction=direction, _replica=replica
+        )
         # gromacs
         if settings.simulator == "gromacs":
             # .mdp (mdout.mdp)
