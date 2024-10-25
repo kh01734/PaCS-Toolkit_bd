@@ -12,8 +12,12 @@ LOGGER = generate_logger(__name__)
 
 
 class GROMACS(SuperSimulator):
-    def run_md(self, settings: MDsettings, cycle: int, direction:str, replica: int) -> None:
-        dir = settings.each_replica(_cycle=cycle, _direction=direction, _replica=replica)
+    def run_md(
+        self, settings: MDsettings, cycle: int, direction: str, replica: int
+    ) -> None:
+        dir = settings.each_replica(
+            _cycle=cycle, _direction=direction, _replica=replica
+        )
         self.run_grompp(settings, dir, direction)
         cmd_mdrun = f"exec {settings.cmd_mpi} {settings.cmd_serial} \
                 -deffnm {dir}/prd 1> {dir}/mdrun.log 2>&1"  # NOQA: E221
@@ -65,7 +69,7 @@ class GROMACS(SuperSimulator):
         else:
             LOGGER.error("direction must be fore or back")
             exit(1)
-        
+
         res_grompp = subprocess.run(cmd_grompp, shell=True)
         if res_grompp.returncode != 0:
             LOGGER.error("error occurred at grompp command")

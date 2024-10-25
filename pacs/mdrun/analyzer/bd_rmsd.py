@@ -3,7 +3,7 @@ from typing import List
 
 import numpy as np
 from pacs.mdrun.analyzer.superAnalyzer import SuperAnalyzer
-from pacs.models.settings import MDsettings, Snapshot, ScoresInCycle, ScoresInOnePair
+from pacs.models.settings import MDsettings, ScoresInCycle, ScoresInOnePair, Snapshot
 from pacs.utils.logger import generate_logger
 
 LOGGER = generate_logger(__name__)
@@ -11,7 +11,12 @@ LOGGER = generate_logger(__name__)
 
 class BD_RMSD(SuperAnalyzer):
     def calculate_scores_in_one_pair(
-        self, settings: MDsettings, cycle: int, fore_replica: int, back_replica: int, send_rev
+        self,
+        settings: MDsettings,
+        cycle: int,
+        fore_replica: int,
+        back_replica: int,
+        send_rev,
     ) -> ScoresInOnePair:
         if settings.analyzer == "mdtraj":
             ret = self.cal_by_mdtraj(settings, cycle, fore_replica, back_replica)
@@ -21,12 +26,16 @@ class BD_RMSD(SuperAnalyzer):
             raise NotImplementedError
         else:
             raise NotImplementedError
-        
-        LOGGER.info(f"cycle {cycle} replica ({fore_replica}, {back_replica}) calculated.")
+
+        LOGGER.info(
+            f"cycle {cycle} replica ({fore_replica}, {back_replica}) calculated."
+        )
         send_rev.send(ret)
         return ret
 
-    def aggregate(self, settings: MDsettings, scores_in_cycle: ScoresInCycle, direction: str) -> np.ndarray:
+    def aggregate(
+        self, settings: MDsettings, scores_in_cycle: ScoresInCycle, direction: str
+    ) -> np.ndarray:
         aggr_func = np.mean
 
         if direction == "fore":
@@ -41,22 +50,31 @@ class BD_RMSD(SuperAnalyzer):
         return sorted_cv
 
     def is_threshold(
-        self, settings: MDsettings, fore_CVs: List[Snapshot] = None, back_CVs: List[Snapshot] = None
+        self,
+        settings: MDsettings,
+        fore_CVs: List[Snapshot] = None,
+        back_CVs: List[Snapshot] = None,
     ) -> bool:
         if fore_CVs is None:
             raise NotImplementedError
         if back_CVs is None:
             raise NotImplementedError
-        
+
         is_threshold_fore = fore_CVs[0].cv < settings.threshold
         is_threshold_back = back_CVs[0].cv < settings.threshold
         return is_threshold_fore and is_threshold_back
-    
-    def cal_by_mdtraj(self, settings: MDsettings, cycle: int, fore_replica: int, back_replica: int) -> ScoresInOnePair:
+
+    def cal_by_mdtraj(
+        self, settings: MDsettings, cycle: int, fore_replica: int, back_replica: int
+    ) -> ScoresInOnePair:
         import mdtraj as md
 
-        fore_dir = settings.each_replica(_cycle=cycle, _direction="fore", _replica=fore_replica)
-        back_dir = settings.each_replica(_cycle=cycle, _direction="back", _replica=back_replica)
+        fore_dir = settings.each_replica(
+            _cycle=cycle, _direction="fore", _replica=fore_replica
+        )
+        back_dir = settings.each_replica(
+            _cycle=cycle, _direction="back", _replica=back_replica
+        )
         fore_trj = md.load(
             f"{fore_dir}/prd{settings.trajectory_extension}",
             top=settings.top_mdtraj_fore,
@@ -97,16 +115,14 @@ class BD_RMSD(SuperAnalyzer):
         )
 
         for frame_i_back in range(n_frames_back):
-
             # もうちょい効率化できるかも
             tmp_rmsds = np.sqrt(
                 3
                 * np.mean(
                     np.square(
-                        fore_trj.xyz[:, sel2_arr]
-                        - back_trj.xyz[frame_i_back, sel4_arr]
+                        fore_trj.xyz[:, sel2_arr] - back_trj.xyz[frame_i_back, sel4_arr]
                     ),
-                    axis=(1, 2), # xyzのみで平均を取る
+                    axis=(1, 2),  # xyzのみで平均を取る
                 )
             )
             rmsd[:, frame_i_back] = tmp_rmsds

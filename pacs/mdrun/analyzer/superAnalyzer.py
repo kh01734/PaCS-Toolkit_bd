@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-from pacs.models.settings import MDsettings, Snapshot, ScoresInCycle, ScoresInOnePair
+from pacs.models.settings import MDsettings, ScoresInCycle, ScoresInOnePair, Snapshot
 from pacs.utils.logger import generate_logger
 
 LOGGER = generate_logger(__name__)
@@ -19,12 +19,19 @@ class SuperAnalyzer(metaclass=ABCMeta):
 
     @abstractmethod
     def calculate_scores_in_one_pair(
-        self, settings: MDsettings, cycle: int, fore_replica: int, back_replica: int, send_rev
+        self,
+        settings: MDsettings,
+        cycle: int,
+        fore_replica: int,
+        back_replica: int,
+        send_rev,
     ) -> ScoresInOnePair:
         pass
 
     @abstractmethod
-    def aggregate(self, settings: MDsettings, scores_in_cycle: ScoresInCycle, direction: str) -> np.ndarray:
+    def aggregate(
+        self, settings: MDsettings, scores_in_cycle: ScoresInCycle, direction: str
+    ) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -33,12 +40,20 @@ class SuperAnalyzer(metaclass=ABCMeta):
 
     @abstractmethod
     def is_threshold(
-        self, settings: MDsettings, fore_CVs: List[Snapshot] = None, back_CVs: List[Snapshot] = None
+        self,
+        settings: MDsettings,
+        fore_CVs: List[Snapshot] = None,
+        back_CVs: List[Snapshot] = None,
     ) -> bool:
         pass
 
     def write_cv_to_file(
-        self, output_file: str, cv_arr: List[Snapshot], settings: MDsettings, cycle: int, direction: str
+        self,
+        output_file: str,
+        cv_arr: List[Snapshot],
+        settings: MDsettings,
+        cycle: int,
+        direction: str,
     ) -> None:
         dir = settings.each_direction(_cycle=cycle, _direction=direction)
         with open(f"{dir}/summary/{output_file}", "w") as f:
@@ -63,13 +78,13 @@ class SuperAnalyzer(metaclass=ABCMeta):
             - あるfore・backのreplicaの組み合わせに対して、そのreplicaの各snapshotの評価関数の値を計算し、arrで返す関数(rust)
             - 全体の行列をもとに、各replicaの各snapshotの評価関数の平均を計算する関数
         """
-        
+
         replica_pairs = [
-            (fore_replica, back_replica) 
-            for fore_replica in range(1, settings.n_replica+1) 
-            for back_replica in range(1, settings.n_replica+1)
+            (fore_replica, back_replica)
+            for fore_replica in range(1, settings.n_replica + 1)
+            for back_replica in range(1, settings.n_replica + 1)
         ]
-        
+
         # calc for the first replica pair
         # fore_replica, back_replica = replica_pairs[0]
         # scores_in_pair = self.calculate_scores_in_one_pair(settings, cycle, fore_replica, back_replica, None)
@@ -86,32 +101,37 @@ class SuperAnalyzer(metaclass=ABCMeta):
             job_list = []
             pipe_list = []
             for fore_replica, back_replica in replica_pairs[
-                i * settings.n_parallel : min(
+                i
+                * settings.n_parallel : min(
                     (i + 1) * settings.n_parallel, len(replica_pairs)
                 )
             ]:
-                LOGGER.info(f"calculating scores in one pair: fore_replica={fore_replica}, back_replica={back_replica}")
+                LOGGER.info(
+                    f"calculating scores in one pair: fore_replica={fore_replica}, back_replica={back_replica}"
+                )
                 get_rev, send_rev = mp.Pipe(False)
                 p = mp.Process(
-                    target=self.calculate_scores_in_one_pair, 
-                    args=(settings, cycle, fore_replica, back_replica, send_rev)
+                    target=self.calculate_scores_in_one_pair,
+                    args=(settings, cycle, fore_replica, back_replica, send_rev),
                 )
                 job_list.append(p)
                 pipe_list.append(get_rev)
                 p.start()
-            
+
             # LOGGER.info(f"gathering the results from the child processes")
             iter_i = 0
             for pipe in pipe_list:
                 scores_in_pair = pipe.recv()
                 if iter_i == 0:
                     scores_in_cycle = ScoresInCycle(
-                        cycle, settings.n_replica, 
-                        scores_in_pair.n_frames_fore, scores_in_pair.n_frames_back
+                        cycle,
+                        settings.n_replica,
+                        scores_in_pair.n_frames_fore,
+                        scores_in_pair.n_frames_back,
                     )
                 scores_in_cycle.add(scores_in_pair)
                 iter_i += 1
-            
+
             # LOGGER.info(f"waiting for the child processes to finish")
             for proc in job_list:
                 proc.join()
@@ -124,7 +144,7 @@ class SuperAnalyzer(metaclass=ABCMeta):
             # Not necessary, but just in case.
             for proc in job_list:
                 proc.close()
-        
+
         # save the scores_in_cycle to the disk
         path = f"{settings.each_cycle(_cycle=cycle)}/summary/scores_in_cycle.npy"
         scores_in_cycle.save(path)
@@ -140,7 +160,7 @@ class SuperAnalyzer(metaclass=ABCMeta):
                 # because it is the initial structure
                 if settings.simulator == "gromacs" and frame == 0:
                     continue
-                snapshot = Snapshot("fore", rep, frame, cv_arr_fore[rep-1, frame])
+                snapshot = Snapshot("fore", rep, frame, cv_arr_fore[rep - 1, frame])
                 results_fore.append(snapshot)
 
         results_back: List[Snapshot] = []
@@ -150,7 +170,7 @@ class SuperAnalyzer(metaclass=ABCMeta):
                 # because it is the initial structure
                 if settings.simulator == "gromacs" and frame == 0:
                     continue
-                snapshot = Snapshot("back", rep, frame, cv_arr_back[rep-1, frame])
+                snapshot = Snapshot("back", rep, frame, cv_arr_back[rep - 1, frame])
                 results_back.append(snapshot)
 
         self.write_cv_to_file("cv.log", results_fore, settings, cycle, "fore")
@@ -169,7 +189,6 @@ class SuperAnalyzer(metaclass=ABCMeta):
         LOGGER.info(f"The top ranking CV backward is {self.back_CVs[0]}")
 
         return self.fore_CVs, self.back_CVs
-
 
     # def analyze(self, settings: MDsettings, cycle: int) -> List[Snapshot]:
     #     self.analyze(settings, cycle, "fore")
@@ -260,5 +279,3 @@ class SuperAnalyzer(metaclass=ABCMeta):
     #     LOGGER.info(f"The top ranking CV is {self.CVs[0]}")
 
     #     return self.CVs
-
-

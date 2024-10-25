@@ -13,7 +13,9 @@ LOGGER = generate_logger(__name__)
 @dataclasses.dataclass
 class SuperSimulator(metaclass=ABCMeta):
     @abstractmethod
-    def run_md(self, settings: MDsettings, cycle: int, direction: str, replica: int) -> None:
+    def run_md(
+        self, settings: MDsettings, cycle: int, direction: str, replica: int
+    ) -> None:
         pass
 
     @abstractmethod
@@ -26,7 +28,9 @@ class SuperSimulator(metaclass=ABCMeta):
         self.run_parallel_one_way(settings, cycle, "fore")
         self.run_parallel_one_way(settings, cycle, "back")
 
-    def run_parallel_one_way(self, settings: MDsettings, cycle: int, direction: str) -> None:
+    def run_parallel_one_way(
+        self, settings: MDsettings, cycle: int, direction: str
+    ) -> None:
         if settings.n_parallel == 1 or cycle == 0:
             self.run_serial(settings, cycle)
             return
@@ -73,8 +77,10 @@ class SuperSimulator(metaclass=ABCMeta):
     def run_serial(self, settings: MDsettings, cycle: int) -> None:
         self.run_serial_one_way(settings, cycle, "fore")
         self.run_serial_one_way(settings, cycle, "back")
-    
-    def run_serial_one_way(self, settings: MDsettings, cycle: int, direction: str) -> None:
+
+    def run_serial_one_way(
+        self, settings: MDsettings, cycle: int, direction: str
+    ) -> None:
         not_finished_replicas = self.not_finished_replicas(settings, cycle, direction)
         if len(not_finished_replicas) == 0:
             return
@@ -82,7 +88,9 @@ class SuperSimulator(metaclass=ABCMeta):
             self.run_md(settings, cycle, direction, replica)
             self.record_finished(settings, cycle, direction, replica)
 
-    def not_finished_replicas(self, settings: MDsettings, cycle: int, direction: str) -> List[int]:
+    def not_finished_replicas(
+        self, settings: MDsettings, cycle: int, direction: str
+    ) -> List[int]:
         finished_replicas = [False] * settings.n_replica
         dir = settings.each_direction(_cycle=cycle, _direction=direction)
         with open(f"{dir}/summary/progress.log", "r") as f:
@@ -97,7 +105,9 @@ class SuperSimulator(metaclass=ABCMeta):
         ]
         return not_finished_replicas
 
-    def record_finished(self, settings: MDsettings, cycle: int, direction: str, replica: int) -> None:
+    def record_finished(
+        self, settings: MDsettings, cycle: int, direction: str, replica: int
+    ) -> None:
         dir = settings.each_direction(_cycle=cycle, _direction=direction)
         logger = generate_logger(f"c{cycle}rep{replica}", f"{dir}/summary/progress.log")
         logger.info(f"replica{replica:03} done")
@@ -106,8 +116,10 @@ class SuperSimulator(metaclass=ABCMeta):
     def run_parallel_MPI(self, settings: MDsettings, cycle: int) -> None:
         self.run_parallel_MPI_one_way(settings, cycle, "fore")
         self.run_parallel_MPI_one_way(settings, cycle, "back")
-    
-    def run_parallel_MPI_one_way(self, settings: MDsettings, cycle: int, direction: str) -> None:
+
+    def run_parallel_MPI_one_way(
+        self, settings: MDsettings, cycle: int, direction: str
+    ) -> None:
         not_finished_replicas = self.not_finished_replicas(settings, cycle, direction)
         if len(not_finished_replicas) == 0:
             return

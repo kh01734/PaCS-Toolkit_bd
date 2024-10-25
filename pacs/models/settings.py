@@ -100,7 +100,11 @@ class MDsettings:
     nojump: bool = False
 
     def each_replica(
-        self, _trial: int = None, _cycle: int = None, _direction: str = None, _replica: int = None
+        self,
+        _trial: int = None,
+        _cycle: int = None,
+        _direction: str = None,
+        _replica: int = None,
     ) -> str:
         if _trial is None:
             _trial = self.trial
@@ -110,11 +114,10 @@ class MDsettings:
             _replica = self.n_replica
         if _direction not in ["fore", "back"]:
             import inspect
+
             LOGGER.error(f"direction={_direction} is given.")
             exit(1)
-        return (
-            f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/{_direction}/replica{_replica:03}"
-        )
+        return f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/{_direction}/replica{_replica:03}"
 
     def each_direction(
         self, _trial: int = None, _cycle: int = None, _direction: str = None
@@ -125,6 +128,7 @@ class MDsettings:
             _cycle = self.cycle
         if _direction not in ["fore", "back"]:
             import inspect
+
             print(inspect.stack()[1])
             LOGGER.error(f"direction={_direction} is given.")
             exit(1)
@@ -299,7 +303,7 @@ class MDsettings:
                 LOGGER.error("selection2 is required for dissociation")
                 exit(1)
 
-        self.update() # update selection3, 4
+        self.update()  # update selection3, 4
 
         if self.topology_fore is None:
             LOGGER.error("topology_fore is None")
@@ -444,7 +448,9 @@ class MDsettings:
         tmp_back = self.structure_back.suffix
         if tmp_fore != tmp_back:
             # for simplicity, the extension of the structure file must be the same
-            LOGGER.error("structure_fore and structure_back must have the same extension.")
+            LOGGER.error(
+                "structure_fore and structure_back must have the same extension."
+            )
             exit(1)
         if tmp_back in init_structure_extension:
             self.structure_extension = tmp_back
@@ -487,6 +493,7 @@ class ScoresInOnePair:
     """
     Information of CV in a pair of (fore_replica, back_replica)
     """
+
     def __init__(
         self, cycle: int, fore_replica: int, back_replica: int, cv_data: np.ndarray
     ) -> None:
@@ -497,12 +504,13 @@ class ScoresInOnePair:
         self.n_frames_fore: int = self.cv_data.shape[0]
         self.n_frames_back: int = self.cv_data.shape[1]
 
-    
+
 class ScoresInCycle:
     """
     Information of evaluation scores in a cycle
 
     """
+
     def __init__(
         self, cycle: int, n_replicas: int, n_frames_fore: int, n_frames_back: int
     ) -> None:
@@ -525,17 +533,19 @@ class ScoresInCycle:
             raise ValueError(
                 f"n_frames_fore is different: {n_frames_fore} != {self.n_frames_fore}"
             )
-        if  n_frames_back != self.n_frames_back:
+        if n_frames_back != self.n_frames_back:
             raise ValueError(
                 f"n_frames_back is different: {n_frames_back} != {self.n_frames_back}"
             )
-        
+
         # add data
         self.cv_data[
-            scores_in_one_pair.fore_replica-1, 
-            scores_in_one_pair.back_replica-1, :, :
+            scores_in_one_pair.fore_replica - 1,
+            scores_in_one_pair.back_replica - 1,
+            :,
+            :,
         ] = scores_in_one_pair.cv_data
         self.is_empty = False
-    
+
     def save(self, path: str) -> None:
         np.save(path, self.cv_data)
