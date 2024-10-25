@@ -135,7 +135,7 @@ class SuperAnalyzer(metaclass=ABCMeta):
 
         results_fore: List[Snapshot] = []
         for rep in range(1, settings.n_replica + 1):
-            for frame in range(0, n_frames_fore):
+            for frame in range(0, scores_in_cycle.n_frames_fore):
                 # Exclude the first frame of the trajectory file in gromacs
                 # because it is the initial structure
                 if settings.simulator == "gromacs" and frame == 0:
@@ -145,7 +145,7 @@ class SuperAnalyzer(metaclass=ABCMeta):
 
         results_back: List[Snapshot] = []
         for rep in range(1, settings.n_replica + 1):
-            for frame in range(0, n_frame_back):
+            for frame in range(0, scores_in_cycle.n_frames_back):
                 # Exclude the first frame of the trajectory file in gromacs
                 # because it is the initial structure
                 if settings.simulator == "gromacs" and frame == 0:

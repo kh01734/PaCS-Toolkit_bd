@@ -116,7 +116,9 @@ class MDsettings:
             f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/{_direction}/replica{_replica:03}"
         )
 
-    def each_direction(self, _trial: int = None, _cycle: int = None, _direction: str = None) -> str:
+    def each_direction(
+        self, _trial: int = None, _cycle: int = None, _direction: str = None
+    ) -> str:
         if _trial is None:
             _trial = self.trial
         if _cycle is None:
@@ -273,12 +275,14 @@ class MDsettings:
         if self.n_parallel > 1 and self.cmd_mpi == "":
             LOGGER.warning(
                 "multiprocessing is used for parallel simulation. \
-                        It could be inefficient however. \
-                        Therefore, it is recommended to set n_parallel to 1 or cmd_mpi."
+                    It could be inefficient however. \
+                    Therefore, it is recommended to set n_parallel to 1 or cmd_mpi."
             )
 
         # Check if indexfile is set when gromacs
-        if self.simulator == "gromacs" and (self.index_file_fore is None or self.index_file_back is None):
+        if self.simulator == "gromacs" and (
+            self.index_file_fore is None or self.index_file_back is None
+        ):
             LOGGER.error("index file is required for gromacs")
             exit(1)
 
@@ -366,7 +370,9 @@ class MDsettings:
             self.cmd_gmx = re.findall(r"\S+", self.cmd_serial)[0]
 
         # rmmol
-        if self.rmmol and (self.keep_selection_fore is None or self.keep_selection_back is None):
+        if self.rmmol and (
+            self.keep_selection_fore is None or self.keep_selection_back is None
+        ):
             LOGGER.error("keep_selection_[fore/back] are necessary if rmmol is True")
             exit(1)
 
@@ -443,7 +449,9 @@ class MDsettings:
         if tmp_back in init_structure_extension:
             self.structure_extension = tmp_back
         else:
-            LOGGER.error(f"cannot start PaCSMD with this STRUCTURE with the extension {tmp_back}")
+            LOGGER.error(
+                f"cannot start PaCSMD with this STRUCTURE with the extension {tmp_back}"
+            )
             exit(1)
 
 
@@ -479,7 +487,9 @@ class ScoresInOnePair:
     """
     Information of CV in a pair of (fore_replica, back_replica)
     """
-    def __init__(self, cycle: int, fore_replica: int, back_replica: int, cv_data: np.ndarray) -> None:
+    def __init__(
+        self, cycle: int, fore_replica: int, back_replica: int, cv_data: np.ndarray
+    ) -> None:
         self.cycle: int = cycle
         self.fore_replica: int = fore_replica
         self.back_replica: int = back_replica
@@ -493,12 +503,16 @@ class ScoresInCycle:
     Information of evaluation scores in a cycle
 
     """
-    def __init__(self, cycle: int, n_replicas: int, n_frames_fore: int, n_frames_back: int) -> None:
+    def __init__(
+        self, cycle: int, n_replicas: int, n_frames_fore: int, n_frames_back: int
+    ) -> None:
         self.cycle: int = cycle
         self.n_replicas: int = n_replicas
         self.n_frames_fore: int = n_frames_fore
         self.n_frames_back: int = n_frames_back
-        self.cv_data: np.ndarray = np.zeros((n_replicas, n_replicas, n_frames_fore, n_frames_back))
+        self.cv_data: np.ndarray = np.zeros(
+            (n_replicas, n_replicas, n_frames_fore, n_frames_back)
+        )
         self.is_empty: bool = True
 
     def add(self, scores_in_one_pair: ScoresInOnePair) -> None:
@@ -508,12 +522,19 @@ class ScoresInCycle:
         n_frames_fore = scores_in_one_pair.n_frames_fore
         n_frames_back = scores_in_one_pair.n_frames_back
         if n_frames_fore != self.n_frames_fore:
-            raise ValueError(f"n_frames_fore is different: {n_frames_fore} != {self.n_frames_fore}")
+            raise ValueError(
+                f"n_frames_fore is different: {n_frames_fore} != {self.n_frames_fore}"
+            )
         if  n_frames_back != self.n_frames_back:
-            raise ValueError(f"n_frames_back is different: {n_frames_back} != {self.n_frames_back}")
+            raise ValueError(
+                f"n_frames_back is different: {n_frames_back} != {self.n_frames_back}"
+            )
         
         # add data
-        self.cv_data[scores_in_one_pair.fore_replica-1, scores_in_one_pair.back_replica-1, :, :] = scores_in_one_pair.cv_data
+        self.cv_data[
+            scores_in_one_pair.fore_replica-1, 
+            scores_in_one_pair.back_replica-1, :, :
+        ] = scores_in_one_pair.cv_data
         self.is_empty = False
     
     def save(self, path: str) -> None:
