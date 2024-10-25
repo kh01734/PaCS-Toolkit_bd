@@ -153,7 +153,7 @@ class Cycle:
         # self.simulator.run_serial(self.settings, self.cycle)
 
     def calculate_cv(self) -> None:
-        self.results = self.analyzer.analyze(self.settings, self.cycle)
+        self.results_fore, self.results_back = self.analyzer.analyze(self.settings, self.cycle)
 
     def export(self) -> None:
         self.exporter.export(self.settings, self.cycle)
@@ -183,5 +183,5 @@ class Cycle:
 
     def meet_threshold(self) -> bool:
         return self.cycle == self.settings.max_cycle or self.analyzer.is_threshold(
-            self.settings, self.results
+            self.settings, self.results_fore, self.results_back
         )

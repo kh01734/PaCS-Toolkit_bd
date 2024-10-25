@@ -23,8 +23,7 @@ class BD_RMSD(SuperAnalyzer):
             raise NotImplementedError
         
         LOGGER.info(f"cycle {cycle} replica ({fore_replica}, {back_replica}) calculated.")
-        if send_rev is not None:
-            send_rev.send(ret)
+        send_rev.send(ret)
         return ret
 
     def aggregate(self, settings: MDsettings, scores_in_cycle: ScoresInCycle, direction: str) -> np.ndarray:
@@ -41,10 +40,17 @@ class BD_RMSD(SuperAnalyzer):
         sorted_cv = sorted(CVs, key=lambda x: x.cv, reverse=False)
         return sorted_cv
 
-    def is_threshold(self, settings: MDsettings, CVs: List[Snapshot] = None) -> bool:
-        if CVs is None:
-            CVs = self.CVs
-        return CVs[0].cv > settings.threshold
+    def is_threshold(
+        self, settings: MDsettings, fore_CVs: List[Snapshot] = None, back_CVs: List[Snapshot] = None
+    ) -> bool:
+        if fore_CVs is None:
+            raise NotImplementedError
+        if back_CVs is None:
+            raise NotImplementedError
+        
+        is_threshold_fore = fore_CVs[0].cv < settings.threshold
+        is_threshold_back = back_CVs[0].cv < settings.threshold
+        return is_threshold_fore and is_threshold_back
     
     def cal_by_mdtraj(self, settings: MDsettings, cycle: int, fore_replica: int, back_replica: int) -> ScoresInOnePair:
         import mdtraj as md
@@ -77,25 +83,36 @@ class BD_RMSD(SuperAnalyzer):
         sel4_arr = back_trj.top.select(settings.selection4)
 
         for frame_i_back in range(n_frames_back):
-            back_trj.superpose(
-                fore_trj,
+            fore_trj.superpose(
+                back_trj,
                 frame_i_back,
                 atom_indices=sel1_arr,
                 ref_atom_indices=sel3_arr,
             )
             # もうちょい効率化できるかも
-            for frame_i_fore in range(n_frames_fore):
-                tmp = np.sqrt(
-                    3
-                    * np.mean(
-                        np.square(
-                            fore_trj.xyz[frame_i_fore, sel2_arr]
-                            - back_trj.xyz[frame_i_back, sel4_arr]
-                        ),
-                        axis=(0, 1), # xyzのみで平均を取る
-                    )
+            tmp_rmsds = np.sqrt(
+                3
+                * np.mean(
+                    np.square(
+                        fore_trj.xyz[:, sel2_arr]
+                        - back_trj.xyz[frame_i_back, sel4_arr]
+                    ),
+                    axis=(1, 2), # xyzのみで平均を取る
                 )
-                rmsd[frame_i_fore, frame_i_back] = tmp
+            )
+            rmsd[:, frame_i_back] = tmp_rmsds
+            # for frame_i_fore in range(n_frames_fore):
+            #     tmp = np.sqrt(
+            #         3
+            #         * np.mean(
+            #             np.square(
+            #                 fore_trj.xyz[frame_i_fore, sel2_arr]
+            #                 - back_trj.xyz[frame_i_back, sel4_arr]
+            #             ),
+            #             axis=(0, 1), # xyzのみで平均を取る
+            #         )
+            #     )
+            #     rmsd[frame_i_fore, frame_i_back] = tmp
 
         scores_in_one_pair = ScoresInOnePair(
             cycle=cycle,

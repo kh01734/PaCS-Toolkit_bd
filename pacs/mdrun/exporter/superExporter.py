@@ -48,7 +48,7 @@ class SuperExporter(metaclass=ABCMeta):
                     LOGGER.error(f"see {dir}/summary/cv_ranked.log")
                     exit(1)
 
-                results.append(Snapshot(int(replica), int(frame), cv_values))
+                results.append(Snapshot(direction, int(replica), int(frame), cv_values))
 
         if settings.n_replica > len(results):
             LOGGER.error(

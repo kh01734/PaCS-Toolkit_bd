@@ -32,7 +32,9 @@ class SuperAnalyzer(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def is_threshold(self, settings: MDsettings, CVs: List[Snapshot] = None) -> bool:
+    def is_threshold(
+        self, settings: MDsettings, fore_CVs: List[Snapshot] = None, back_CVs: List[Snapshot] = None
+    ) -> bool:
         pass
 
     def write_cv_to_file(
@@ -69,34 +71,52 @@ class SuperAnalyzer(metaclass=ABCMeta):
         ]
         
         # calc for the first replica pair
-        fore_replica, back_replica = replica_pairs[0]
-        scores_in_pair = self.calculate_scores_in_one_pair(settings, cycle, fore_replica, back_replica, None)
-        scores_in_cycle = ScoresInCycle(cycle, settings.n_replica, scores_in_pair.n_frames_fore, scores_in_pair.n_frames_back)
-        scores_in_cycle.add(scores_in_pair)
-        n_frames_fore = scores_in_pair.n_frames_fore
-        n_frame_back = scores_in_pair.n_frames_back
-        replica_pairs = replica_pairs[1:]
+        # fore_replica, back_replica = replica_pairs[0]
+        # scores_in_pair = self.calculate_scores_in_one_pair(settings, cycle, fore_replica, back_replica, None)
+        # scores_in_cycle = ScoresInCycle(cycle, settings.n_replica, scores_in_pair.n_frames_fore, scores_in_pair.n_frames_back)
+        # scores_in_cycle.add(scores_in_pair)
+        # n_frames_fore = scores_in_pair.n_frames_fore
+        # n_frame_back = scores_in_pair.n_frames_back
+        # replica_pairs = replica_pairs[1:]
 
         # calc for the rest replica pairs
-        pipe_list = []
         n_loop = (len(replica_pairs) + settings.n_parallel - 1) // settings.n_parallel
 
         for i in range(n_loop):
             job_list = []
+            pipe_list = []
             for fore_replica, back_replica in replica_pairs[
                 i * settings.n_parallel : min(
                     (i + 1) * settings.n_parallel, len(replica_pairs)
                 )
             ]:
+                LOGGER.info(f"calculating scores in one pair: fore_replica={fore_replica}, back_replica={back_replica}")
                 get_rev, send_rev = mp.Pipe(False)
                 p = mp.Process(
-                    target=self.calculate_scores_in_one_pair, args=(settings, cycle, fore_replica, back_replica, send_rev)
+                    target=self.calculate_scores_in_one_pair, 
+                    args=(settings, cycle, fore_replica, back_replica, send_rev)
                 )
                 job_list.append(p)
                 pipe_list.append(get_rev)
                 p.start()
+            
+            # LOGGER.info(f"gathering the results from the child processes")
+            iter_i = 0
+            for pipe in pipe_list:
+                scores_in_pair = pipe.recv()
+                if iter_i == 0:
+                    scores_in_cycle = ScoresInCycle(
+                        cycle, settings.n_replica, 
+                        scores_in_pair.n_frames_fore, scores_in_pair.n_frames_back
+                    )
+                scores_in_cycle.add(scores_in_pair)
+                iter_i += 1
+            
+            # LOGGER.info(f"waiting for the child processes to finish")
             for proc in job_list:
                 proc.join()
+
+            # LOGGER.info(f"checking the exit code of the child processes")
             for proc in job_list:
                 if proc.exitcode != 0:
                     LOGGER.error("error occurred at child process")
@@ -104,10 +124,6 @@ class SuperAnalyzer(metaclass=ABCMeta):
             # Not necessary, but just in case.
             for proc in job_list:
                 proc.close()
-
-        for pipe in pipe_list:
-            scores_in_pair = pipe.recv()
-            scores_in_cycle.add(scores_in_pair)
         
         # save the scores_in_cycle to the disk
         path = f"{settings.each_cycle(_cycle=cycle)}/summary/scores_in_cycle.npy"

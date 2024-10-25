@@ -54,16 +54,23 @@ class eGromacs(SuperExporter):
         import mdtraj as md
 
         extension = settings.trajectory_extension
-        from_dir = settings.each_direction(
+        from_dir = settings.each_replica(
             _cycle=cycle, _direction=direction, _replica=results[replica_rank].replica
         )
-        selected_frame = md.load_frame(
-            f"{from_dir}/prd{extension}",
-            index=results[replica_rank].frame,
-            top=settings.top_mdtraj,
-        )
+        if direction == "fore":
+            selected_frame = md.load_frame(
+                f"{from_dir}/prd{extension}",
+                index=results[replica_rank].frame,
+                top=settings.top_mdtraj_fore,
+            )
+        elif direction == "back":
+            selected_frame = md.load_frame(
+                f"{from_dir}/prd{extension}",
+                index=results[replica_rank].frame,
+                top=settings.top_mdtraj_back,
+            )
 
-        out_dir = settings.each_direction(
+        out_dir = settings.each_replica(
             _cycle=cycle + 1, _direction=direction, _replica=replica_rank + 1
         )
         if settings.centering:

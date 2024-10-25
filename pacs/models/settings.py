@@ -109,6 +109,7 @@ class MDsettings:
         if _replica is None:
             _replica = self.n_replica
         if _direction not in ["fore", "back"]:
+            import inspect
             LOGGER.error(f"direction={_direction} is given.")
             exit(1)
         return (
@@ -121,6 +122,8 @@ class MDsettings:
         if _cycle is None:
             _cycle = self.cycle
         if _direction not in ["fore", "back"]:
+            import inspect
+            print(inspect.stack()[1])
             LOGGER.error(f"direction={_direction} is given.")
             exit(1)
         return f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/{_direction}"
@@ -496,6 +499,7 @@ class ScoresInCycle:
         self.n_frames_fore: int = n_frames_fore
         self.n_frames_back: int = n_frames_back
         self.cv_data: np.ndarray = np.zeros((n_replicas, n_replicas, n_frames_fore, n_frames_back))
+        self.is_empty: bool = True
 
     def add(self, scores_in_one_pair: ScoresInOnePair) -> None:
         # check shape
@@ -510,6 +514,7 @@ class ScoresInCycle:
         
         # add data
         self.cv_data[scores_in_one_pair.fore_replica-1, scores_in_one_pair.back_replica-1, :, :] = scores_in_one_pair.cv_data
+        self.is_empty = False
     
     def save(self, path: str) -> None:
         np.save(path, self.cv_data)
