@@ -9,8 +9,6 @@ from ._version import __version__
 # from .mdrun.analyzer.rmsd import RMSD
 from .mdrun.analyzer.bd_rmsd import BD_RMSD
 from .mdrun.analyzer.superAnalyzer import SuperAnalyzer
-from .mdrun.analyzer.target import Target
-from .mdrun.analyzer.template import Template
 from .mdrun.Cycle import Cycle
 from .mdrun.exporter.amber import eAmber
 from .mdrun.exporter.gromacs import eGromacs

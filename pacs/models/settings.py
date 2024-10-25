@@ -113,11 +113,13 @@ class MDsettings:
         if _replica is None:
             _replica = self.n_replica
         if _direction not in ["fore", "back"]:
-            import inspect
-
             LOGGER.error(f"direction={_direction} is given.")
             exit(1)
-        return f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/{_direction}/replica{_replica:03}"
+        retval = (
+            f"{self.working_dir}/trial{_trial:03}/"
+            f"cycle{_cycle:03}/{_direction}/replica{_replica:03}"
+        )
+        return retval
 
     def each_direction(
         self, _trial: int = None, _cycle: int = None, _direction: str = None
@@ -381,22 +383,22 @@ class MDsettings:
             exit(1)
 
         # top_mdtraj
-        top_extension = [
-            ".pdb",
-            ".pdb.gz",
-            ".h5",
-            ".lh5",
-            ".prmtop",
-            ".parm7",
-            ".prm7",
-            ".psf",
-            ".mol2",
-            ".hoomdxml",
-            ".gro",
-            ".arc",
-            ".hdf5",
-            ".gsd",
-        ]
+        # top_extension = [
+        #     ".pdb",
+        #     ".pdb.gz",
+        #     ".h5",
+        #     ".lh5",
+        #     ".prmtop",
+        #     ".parm7",
+        #     ".prm7",
+        #     ".psf",
+        #     ".mol2",
+        #     ".hoomdxml",
+        #     ".gro",
+        #     ".arc",
+        #     ".hdf5",
+        #     ".gsd",
+        # ]
         # Retrieve the topology file from the input
         # top_mdtraj = next(
         #     (
@@ -525,8 +527,6 @@ class ScoresInCycle:
 
     def add(self, scores_in_one_pair: ScoresInOnePair) -> None:
         # check shape
-        fore_replica = scores_in_one_pair.fore_replica
-        back_replica = scores_in_one_pair.back_replica
         n_frames_fore = scores_in_one_pair.n_frames_fore
         n_frames_back = scores_in_one_pair.n_frames_back
         if n_frames_fore != self.n_frames_fore:

@@ -1,9 +1,6 @@
 import dataclasses
-import subprocess
-from pathlib import Path
-from typing import Dict, List
+from typing import List
 
-import numpy as np
 from pacs.mdrun.exporter.superExporter import SuperExporter
 from pacs.models.settings import MDsettings, Snapshot
 from pacs.utils.logger import generate_logger

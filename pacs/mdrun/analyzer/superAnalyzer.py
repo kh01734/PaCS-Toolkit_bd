@@ -1,8 +1,6 @@
 import dataclasses
 import multiprocessing as mp
-import re
 from abc import ABCMeta, abstractmethod
-from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -63,19 +61,29 @@ class SuperAnalyzer(metaclass=ABCMeta):
     def analyze(self, settings: MDsettings, cycle: int) -> List[Snapshot]:
         # call rust functios here
         """
-        1. extract the fitting/rmsd part and pass to Rust (fore/back) (remove the center of mass of fitting part by transposing the coordinates)
-        2. call rust function to calculate the rmsd matrices for each (fore, back) replica pairs and store them in the disk (shape = (n_frames, n_frames))
-        3. read the results from the disk an create a large matrix of rmsd values between all snapshots (shape = (fore_n_replicas, back_n_replicas, n_frames, n_frames))
+        1. extract the fitting/rmsd part and pass to Rust
+            (fore/back)
+            (remove the center of mass of fitting part
+            by transposing the coordinates)
+        2. call rust function to calculate the rmsd matrices
+        for each (fore, back) replica pairs
+        and store them in the disk (shape = (n_frames, n_frames))
+        3. read the results from the disk an create a large matrix
+        of rmsd values between all snapshots
+        (shape = (fore_n_replicas, back_n_replicas, n_frames, n_frames))
         4. 全体の行列をもとに、fore/backの各snapshotのrmsdの平均を計算
 
         1, 2はセットとして、並列化できるようにしておく
-        cvをバイナリとしてcycle***/summary/以下に書くのはstep123, テキストとしてcycle***/[fore/back]/summaryに書くのはstep4
+        cvをバイナリとしてcycle***/summary/以下に書くのはstep123,
+         テキストとしてcycle***/[fore/back]/summaryに書くのはstep4
         他の評価関数の場合にも使えるよう、一般化しておく（これらはsuperAnalyzer内に書く）
-            - あるfore・backのreplicaの組み合わせに対して、そのreplicaの各snapshotの評価関数の値を計算した結果をファイルに書く関数
+            - あるfore・backのreplicaの組み合わせに対して、そのreplicaの各snapshotの
+            評価関数の値を計算した結果をファイルに書く関数
             - その関数を全ペアに対して回す関数
             - レプリカペアごとになっている.npyファイルを読み込んで、全体の行列を作る関数
         各評価関数ごとにファイル分けして書くべきこと
-            - あるfore・backのreplicaの組み合わせに対して、そのreplicaの各snapshotの評価関数の値を計算し、arrで返す関数(rust)
+            - あるfore・backのreplicaの組み合わせに対して、そのreplicaの各snapshotの評価関数の値を計算し、
+            arrで返す関数(rust)
             - 全体の行列をもとに、各replicaの各snapshotの評価関数の平均を計算する関数
         """
 
@@ -84,15 +92,6 @@ class SuperAnalyzer(metaclass=ABCMeta):
             for fore_replica in range(1, settings.n_replica + 1)
             for back_replica in range(1, settings.n_replica + 1)
         ]
-
-        # calc for the first replica pair
-        # fore_replica, back_replica = replica_pairs[0]
-        # scores_in_pair = self.calculate_scores_in_one_pair(settings, cycle, fore_replica, back_replica, None)
-        # scores_in_cycle = ScoresInCycle(cycle, settings.n_replica, scores_in_pair.n_frames_fore, scores_in_pair.n_frames_back)
-        # scores_in_cycle.add(scores_in_pair)
-        # n_frames_fore = scores_in_pair.n_frames_fore
-        # n_frame_back = scores_in_pair.n_frames_back
-        # replica_pairs = replica_pairs[1:]
 
         # calc for the rest replica pairs
         n_loop = (len(replica_pairs) + settings.n_parallel - 1) // settings.n_parallel
@@ -107,7 +106,10 @@ class SuperAnalyzer(metaclass=ABCMeta):
                 )
             ]:
                 LOGGER.info(
-                    f"calculating scores in one pair: fore_replica={fore_replica}, back_replica={back_replica}"
+                    (
+                        f"calculating scores in one pair: "
+                        f"fore_replica={fore_replica}, back_replica={back_replica}"
+                    )
                 )
                 get_rev, send_rev = mp.Pipe(False)
                 p = mp.Process(
@@ -194,7 +196,9 @@ class SuperAnalyzer(metaclass=ABCMeta):
     #     self.analyze(settings, cycle, "fore")
     #     self.analyze(settings, cycle, "back")
 
-    # def analyze_one_way(self, settings: MDsettings, cycle: int, direction: str) -> List[Snapshot]:
+    # def analyze_one_way(
+    #      self, settings: MDsettings, cycle: int, direction: str
+    # ) -> List[Snapshot]:
     #     dir = settings.each_direction(_cycle=cycle, _direction=direction)
     #     if Path(f"{dir}/summary/cv_ranked.log").exists():
     #         pattern1 = r"replica (\d+) frame (\d+) cv \[([-\d.\s]+)\]"
