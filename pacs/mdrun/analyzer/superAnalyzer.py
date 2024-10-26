@@ -187,7 +187,7 @@ class SuperAnalyzer(metaclass=ABCMeta):
         self.write_cv_to_file("cv_ranked.log", self.fore_CVs, settings, cycle, "fore")
         self.write_cv_to_file("cv_ranked.log", self.back_CVs, settings, cycle, "back")
 
-        LOGGER.info(f"The top ranking CV forward is {self.fore_CVs[0]}")
+        LOGGER.info(f"The top ranking CV forward  is {self.fore_CVs[0]}")
         LOGGER.info(f"The top ranking CV backward is {self.back_CVs[0]}")
 
         return self.fore_CVs, self.back_CVs

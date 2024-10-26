@@ -53,7 +53,8 @@ class SuperSimulator(metaclass=ABCMeta):
                 i * n_parallel : min((i + 1) * n_parallel, rest)
             ]:
                 process = mp.Process(
-                    target=self.run_md, args=(settings, cycle, replica)
+                    target=self.run_md, 
+                    args=(settings, cycle, direction, replica)
                 )
                 processes.append(process)
                 process.start()
@@ -110,7 +111,7 @@ class SuperSimulator(metaclass=ABCMeta):
     ) -> None:
         dir = settings.each_direction(_cycle=cycle, _direction=direction)
         logger = generate_logger(f"c{cycle}rep{replica}", f"{dir}/summary/progress.log")
-        logger.info(f"replica{replica:03} done")
+        logger.info(f"{direction} replica{replica:03} done")
         close_logger(logger)
 
     def run_parallel_MPI(self, settings: MDsettings, cycle: int) -> None:
