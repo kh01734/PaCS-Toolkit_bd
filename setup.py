@@ -32,6 +32,8 @@ setup(
     install_requires=[
         "numpy<2.0.0",
         "tomli>=2.0.1",
+        "maturin>=0.10.0",
+        "cffi",
     ],
     extras_require={
         "mdtraj": [

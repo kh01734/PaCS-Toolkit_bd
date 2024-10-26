@@ -2,6 +2,7 @@ import dataclasses
 import re
 from pathlib import Path
 
+import numpy as np
 from pacs.utils.logger import generate_logger
 
 LOGGER = generate_logger(__name__)
@@ -53,10 +54,16 @@ class MDsettings:
 
     # simulator
     simulator: str = None
-    structure: Path = None
-    topology: Path = None
-    mdconf: Path = None
-    index_file: Path = None
+    structure_fore: Path = None
+    topology_fore: Path = None
+    mdconf_fore: Path = None
+    index_file_fore: Path = None
+
+    structure_back: Path = None
+    topology_back: Path = None
+    mdconf_back: Path = None
+    index_file_back: Path = None
+
     trajectory_extension: str = None
     cmd_mpi: str = ""
     cmd_parallel: str = None
@@ -67,7 +74,6 @@ class MDsettings:
     type: str = None
     threshold: float = None
     skip_frame: int = 1
-    reference: Path = None
     selection1: str = None
     selection2: str = None
     selection3: str = None
@@ -75,7 +81,8 @@ class MDsettings:
 
     # hidden option
     cmd_gmx: str = None
-    top_mdtraj: str = None
+    top_mdtraj_fore: str = None
+    top_mdtraj_back: str = None
     structure_extension: str = None
 
     # genrepresent option
@@ -83,7 +90,8 @@ class MDsettings:
 
     # rmmol option
     rmmol: bool = False
-    keep_selection: str = None
+    keep_selection_fore: str = None
+    keep_selection_back: str = None
 
     # rmfile option
     rmfile: bool = False
@@ -92,7 +100,11 @@ class MDsettings:
     nojump: bool = False
 
     def each_replica(
-        self, _trial: int = None, _cycle: int = None, _replica: int = None
+        self,
+        _trial: int = None,
+        _cycle: int = None,
+        _direction: str = None,
+        _replica: int = None,
     ) -> str:
         if _trial is None:
             _trial = self.trial
@@ -100,9 +112,29 @@ class MDsettings:
             _cycle = self.max_cycle
         if _replica is None:
             _replica = self.n_replica
-        return (
-            f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/replica{_replica:03}"
+        if _direction not in ["fore", "back"]:
+            LOGGER.error(f"direction={_direction} is given.")
+            exit(1)
+        retval = (
+            f"{self.working_dir}/trial{_trial:03}/"
+            f"cycle{_cycle:03}/{_direction}/replica{_replica:03}"
         )
+        return retval
+
+    def each_direction(
+        self, _trial: int = None, _cycle: int = None, _direction: str = None
+    ) -> str:
+        if _trial is None:
+            _trial = self.trial
+        if _cycle is None:
+            _cycle = self.cycle
+        if _direction not in ["fore", "back"]:
+            import inspect
+
+            print(inspect.stack()[1])
+            LOGGER.error(f"direction={_direction} is given.")
+            exit(1)
+        return f"{self.working_dir}/trial{_trial:03}/cycle{_cycle:03}/{_direction}"
 
     def each_cycle(self, _trial: int = None, _cycle: int = None) -> str:
         if _trial is None:
@@ -119,9 +151,9 @@ class MDsettings:
     def log_file(self) -> str:
         return f"{self.working_dir}/trial{self.trial:03}.log"
 
-    def rmmol_top(self) -> None:
-        c0r1_dir = self.each_replica(_cycle=0, _replica=1)
-        self.top_mdtraj = f"{c0r1_dir}/rmmol_top.pdb"
+    # def rmmol_top(self, direction: str) -> None:
+    #     c0r1_dir = self.each_replica(_cycle=0, _direction=direction, _replica=1)
+    #     self.top_mdtraj = f"{c0r1_dir}/rmmol_top.pdb"
 
     def check_bool(self, value: str) -> bool:
         if isinstance(value, str):
@@ -132,9 +164,9 @@ class MDsettings:
 
     def update(self):
         if self.selection3 is None:
-            self.selection3 = self.selection1
+            LOGGER.error("selection3 is None. Please set selection3.")
         if self.selection4 is None:
-            self.selection4 = self.selection2
+            LOGGER.error("selection4 is None. Please set selection4.")
         if self.cmd_parallel is None:
             if self.n_parallel > 1:
                 LOGGER.warning(
@@ -199,13 +231,13 @@ class MDsettings:
             exit(1)
 
         if self.type not in [
-            "target",
-            "association",
-            "dissociation",
-            "rmsd",
-            "ee",
-            "a_d",
-            "template",
+            "bd_rmsd",
+            # "association",
+            # "dissociation",
+            # "rmsd",
+            # "ee",
+            # "a_d",
+            # "template",
         ]:
             LOGGER.error(f"{self.type} is not supported")
             exit(1)
@@ -227,10 +259,11 @@ class MDsettings:
 
         # threshold check
         if self.threshold is None and self.type in [
-            "target",
-            "association",
-            "dissociation",
-            "rmsd",
+            "bd_rmsd",
+            # "target",
+            # "association",
+            # "dissociation",
+            # "rmsd",
         ]:
             LOGGER.error(f"{self.type} requires threshold")
             exit(1)
@@ -248,12 +281,14 @@ class MDsettings:
         if self.n_parallel > 1 and self.cmd_mpi == "":
             LOGGER.warning(
                 "multiprocessing is used for parallel simulation. \
-                        It could be inefficient however. \
-                        Therefore, it is recommended to set n_parallel to 1 or cmd_mpi."
+                    It could be inefficient however. \
+                    Therefore, it is recommended to set n_parallel to 1 or cmd_mpi."
             )
 
         # Check if indexfile is set when gromacs
-        if self.simulator == "gromacs" and self.index_file is None:
+        if self.simulator == "gromacs" and (
+            self.index_file_fore is None or self.index_file_back is None
+        ):
             LOGGER.error("index file is required for gromacs")
             exit(1)
 
@@ -270,30 +305,57 @@ class MDsettings:
                 LOGGER.error("selection2 is required for dissociation")
                 exit(1)
 
-        self.update()
+        self.update()  # update selection3, 4
 
-        if self.topology is None:
-            LOGGER.error("topology is None")
+        if self.topology_fore is None:
+            LOGGER.error("topology_fore is None")
             exit(1)
-        if self.structure is None:
-            LOGGER.error("structure is None")
+        if self.structure_fore is None:
+            LOGGER.error("structure_fore is None")
             exit(1)
-        if self.mdconf is None:
-            LOGGER.error("mdconf is None")
+        if self.mdconf_fore is None:
+            LOGGER.error("mdconf_fore is None")
+            exit(1)
+
+        if self.topology_back is None:
+            LOGGER.error("topology_back is None")
+            exit(1)
+        if self.structure_back is None:
+            LOGGER.error("structure_back is None")
+            exit(1)
+        if self.mdconf_back is None:
+            LOGGER.error("mdconf_back is None")
+            exit(1)
+
+        if self.working_dir is None:
+            LOGGER.error("working_dir is None")
             exit(1)
         if self.trajectory_extension is None:
             LOGGER.error("trajectory_extension is None")
             exit(1)
-        self.structure = Path(self.structure)
-        self.topology = Path(self.topology)
-        self.mdconf = Path(self.mdconf)
+
+        self.structure_fore = Path(self.structure_fore)
+        self.topology_fore = Path(self.topology_fore)
+        self.mdconf_fore = Path(self.mdconf_fore)
+
+        self.structure_back = Path(self.structure_back)
+        self.topology_back = Path(self.topology_back)
+        self.mdconf_back = Path(self.mdconf_back)
+
         self.working_dir = Path(self.working_dir)
         if self.simulator == "gromacs":
-            self.index_file = Path(self.index_file)
+            if self.index_file_fore is None:
+                LOGGER.error("index_file_fore is None")
+                exit(1)
+            if self.index_file_back is None:
+                LOGGER.error("index_file_back is None")
+                exit(1)
+            self.index_file_fore = Path(self.index_file_fore)
+            self.index_file_back = Path(self.index_file_back)
 
         # analyzer
-        if self.type in ["target", "rmsd"]:
-            self.reference = Path(self.reference)
+        # if self.type in ["bd_rmsd"]:
+        #     self.reference = Path(self.reference)
 
         # relative path to absolute path
         """
@@ -314,38 +376,47 @@ class MDsettings:
             self.cmd_gmx = re.findall(r"\S+", self.cmd_serial)[0]
 
         # rmmol
-        if self.rmmol and self.keep_selection is None:
-            LOGGER.error("keep_selection is necessary if rmmol is True")
+        if self.rmmol and (
+            self.keep_selection_fore is None or self.keep_selection_back is None
+        ):
+            LOGGER.error("keep_selection_[fore/back] are necessary if rmmol is True")
             exit(1)
 
         # top_mdtraj
-        top_extension = [
-            ".pdb",
-            ".pdb.gz",
-            ".h5",
-            ".lh5",
-            ".prmtop",
-            ".parm7",
-            ".prm7",
-            ".psf",
-            ".mol2",
-            ".hoomdxml",
-            ".gro",
-            ".arc",
-            ".hdf5",
-            ".gsd",
-        ]
+        # top_extension = [
+        #     ".pdb",
+        #     ".pdb.gz",
+        #     ".h5",
+        #     ".lh5",
+        #     ".prmtop",
+        #     ".parm7",
+        #     ".prm7",
+        #     ".psf",
+        #     ".mol2",
+        #     ".hoomdxml",
+        #     ".gro",
+        #     ".arc",
+        #     ".hdf5",
+        #     ".gsd",
+        # ]
         # Retrieve the topology file from the input
-        top_mdtraj = next(
-            (
-                v
-                for v in vars(self).values()
-                if hasattr(v, "as_posix") and v.suffix in top_extension
-            ),
-            None,
-        )
-        if top_mdtraj is not None:
-            self.top_mdtraj = top_mdtraj
+        # top_mdtraj = next(
+        #     (
+        #         v
+        #         for v in vars(self).values()
+        #         if hasattr(v, "as_posix") and v.suffix in top_extension
+        #     ),
+        #     None,
+        # )
+        top_mdtraj_fore = Path(self.structure_fore)
+        top_mdtraj_back = Path(self.structure_back)
+        if top_mdtraj_fore is not None:
+            self.top_mdtraj_fore = top_mdtraj_fore
+        else:
+            LOGGER.error("a topology file required to read the trajectory is missing.")
+            exit(1)
+        if top_mdtraj_back is not None:
+            self.top_mdtraj_back = top_mdtraj_back
         else:
             LOGGER.error("a topology file required to read the trajectory is missing.")
             exit(1)
@@ -375,11 +446,20 @@ class MDsettings:
             ".dtr",
             ".gsd",
         ]
-        tmp = self.structure.suffix
-        if tmp in init_structure_extension:
-            self.structure_extension = tmp
+        tmp_fore = self.structure_fore.suffix
+        tmp_back = self.structure_back.suffix
+        if tmp_fore != tmp_back:
+            # for simplicity, the extension of the structure file must be the same
+            LOGGER.error(
+                "structure_fore and structure_back must have the same extension."
+            )
+            exit(1)
+        if tmp_back in init_structure_extension:
+            self.structure_extension = tmp_back
         else:
-            LOGGER.error("cannot start PaCSMD with this STRUCTURE.")
+            LOGGER.error(
+                f"cannot start PaCSMD with this STRUCTURE with the extension {tmp_back}"
+            )
             exit(1)
 
 
@@ -389,12 +469,14 @@ class Snapshot:
     information about a snapshot of a trajectory
 
     Attributes:
+        direction (str): direction of simulation [fore, back]
         replica (int): id of replica
         frame (int): id of frame
         cv (float or List[float]): value of collective variable
     """
 
-    def __init__(self, replica: int, frame: int, cv: float):
+    def __init__(self, direction: str, replica: int, frame: int, cv: float):
+        self.direction = direction
         self.replica = replica
         self.frame = frame
         self.cv = cv
@@ -407,3 +489,63 @@ class Snapshot:
 
     def __lt__(self, other) -> bool:
         return self.cv < other.cv
+
+
+class ScoresInOnePair:
+    """
+    Information of CV in a pair of (fore_replica, back_replica)
+    """
+
+    def __init__(
+        self, cycle: int, fore_replica: int, back_replica: int, cv_data: np.ndarray
+    ) -> None:
+        self.cycle: int = cycle
+        self.fore_replica: int = fore_replica
+        self.back_replica: int = back_replica
+        self.cv_data: np.ndarray = cv_data[:]
+        self.n_frames_fore: int = self.cv_data.shape[0]
+        self.n_frames_back: int = self.cv_data.shape[1]
+
+
+class ScoresInCycle:
+    """
+    Information of evaluation scores in a cycle
+
+    """
+
+    def __init__(
+        self, cycle: int, n_replicas: int, n_frames_fore: int, n_frames_back: int
+    ) -> None:
+        self.cycle: int = cycle
+        self.n_replicas: int = n_replicas
+        self.n_frames_fore: int = n_frames_fore
+        self.n_frames_back: int = n_frames_back
+        self.cv_data: np.ndarray = np.zeros(
+            (n_replicas, n_replicas, n_frames_fore, n_frames_back)
+        )
+        self.is_empty: bool = True
+
+    def add(self, scores_in_one_pair: ScoresInOnePair) -> None:
+        # check shape
+        n_frames_fore = scores_in_one_pair.n_frames_fore
+        n_frames_back = scores_in_one_pair.n_frames_back
+        if n_frames_fore != self.n_frames_fore:
+            raise ValueError(
+                f"n_frames_fore is different: {n_frames_fore} != {self.n_frames_fore}"
+            )
+        if n_frames_back != self.n_frames_back:
+            raise ValueError(
+                f"n_frames_back is different: {n_frames_back} != {self.n_frames_back}"
+            )
+
+        # add data
+        self.cv_data[
+            scores_in_one_pair.fore_replica - 1,
+            scores_in_one_pair.back_replica - 1,
+            :,
+            :,
+        ] = scores_in_one_pair.cv_data
+        self.is_empty = False
+
+    def save(self, path: str) -> None:
+        np.save(path, self.cv_data)

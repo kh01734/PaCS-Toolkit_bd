@@ -1,0 +1,16 @@
+[package]
+name = "my_rust_component"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pyo3 = { version = "0.18", features = ["extension-module"] }
+ndarray = "0.13"
+ndarray-parallel = { version = "0.3.0-alpha.1" }
+numpy = "0.11"
+rayon = "1.7"
+wide = "0.7"
+
+
+[lib]
+crate-type = ["cdylib"]  # Pythonから呼び出せる共有ライブラリとしてコンパイル

@@ -7,10 +7,12 @@ from pacs.utils.logger import generate_logger
 LOGGER = generate_logger(__name__)
 
 
-def detect_n_replica(settings: MDsettings, cycle: int) -> int:
+def detect_n_replica(settings: MDsettings, cycle: int, direction: str) -> int:
     # detect number of replicas
     for replica in range(1, 1000):
-        replica_dir = Path(settings.each_replica(_cycle=cycle, _replica=replica))
+        replica_dir = Path(
+            settings.each_replica(_cycle=cycle, _direction=direction, _replica=replica)
+        )
         if not replica_dir.exists():
             n_replica = replica - 1
             break
@@ -40,63 +42,67 @@ def run_rm(file_name: str) -> None:
 
 
 def rmfile(settings: MDsettings, cycle: int) -> None:
-    n_replica = detect_n_replica(settings, cycle)
-    for replica in range(1, n_replica + 1):
-        dir = settings.each_replica(_cycle=cycle, _replica=replica)
-        # gromacs
-        if settings.simulator == "gromacs":
-            # .mdp (mdout.mdp)
-            run_rm(f"{dir}/mdout.mdp")
+    for direction in ["fore", "back"]:
+        n_replica = detect_n_replica(settings, cycle, direction=direction)
+        for replica in range(1, n_replica + 1):
+            dir = settings.each_replica(
+                _cycle=cycle, _direction=direction, _replica=replica
+            )
+            # gromacs
+            if settings.simulator == "gromacs":
+                # .mdp (mdout.mdp)
+                run_rm(f"{dir}/mdout.mdp")
 
-            # .cpt
-            run_rm(f"-f {dir}/*.cpt")
+                # .cpt
+                run_rm(f"-f {dir}/*.cpt")
 
-            # .tpr
-            # keep .tpr files if rmmol=false in mdrun,  in case you want to do rmmol afterward
-            if cycle != 0 and settings.rmmol:
-                run_rm(f"{dir}/prd.tpr")
+                # .tpr
+                # keep .tpr files if rmmol=false in mdrun,
+                #  in case you want to do rmmol afterward
+                if cycle != 0 and settings.rmmol:
+                    run_rm(f"{dir}/prd.tpr")
 
-            # '#backup#': use -f
-            run_rm(f"-f {dir}/\#*")  # NOQA: W605
+                # '#backup#': use -f
+                run_rm(f"-f {dir}/\#*")  # NOQA: W605
 
-            # output structure prd
-            run_rm(f"{dir}/prd.gro")
+                # output structure prd
+                run_rm(f"{dir}/prd.gro")
 
-        # amber
-        elif settings.simulator == "amber":
-            # .mdinfo
-            run_rm(f"{dir}/prd.mdinfo")
+            # amber
+            elif settings.simulator == "amber":
+                # .mdinfo
+                run_rm(f"{dir}/prd.mdinfo")
 
-            # # .mdout
-            # run_rm(f"{dir}/prd.mdout")
+                # # .mdout
+                # run_rm(f"{dir}/prd.mdout")
 
-            # prd.log (because empty file)
-            run_rm(f"{dir}/prd.log")
+                # prd.log (because empty file)
+                run_rm(f"{dir}/prd.log")
 
-            # output structure prd
-            run_rm(f"{dir}/prd.rst7")
+                # output structure prd
+                run_rm(f"{dir}/prd.rst7")
 
-        # namd
-        elif settings.simulator == "namd":
-            # .txt
-            # run_rm(f"{dir}/*.txt")
+            # namd
+            elif settings.simulator == "namd":
+                # .txt
+                # run_rm(f"{dir}/*.txt")
 
-            # .conf
-            # run_rm(f"{dir}/prd.conf")
+                # .conf
+                # run_rm(f"{dir}/prd.conf")
 
-            # .coor
-            # run_rm(f"{dir}/*.coor")
+                # .coor
+                # run_rm(f"{dir}/*.coor")
 
-            # .vel
-            # run_rm(f"{dir}/*.vel")
+                # .vel
+                # run_rm(f"{dir}/*.vel")
 
-            # .xsc
-            # run_rm(f"{dir}/*.xsc")
+                # .xsc
+                # run_rm(f"{dir}/*.xsc")
 
-            # .xst
-            # run_rm(f"{dir}/*.xst")
+                # .xst
+                # run_rm(f"{dir}/*.xst")
 
-            continue
+                continue
 
     LOGGER.info(f"rmfile completed successfully in cycle{cycle:03}")
 

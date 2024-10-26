@@ -70,14 +70,26 @@ class Cycle:
         this is a method for preparing the trial, cycle 0
         """
         self.prepare_next_cycle(cycle=-1, replica=1)
-        extension = Path(self.settings.structure).suffix
-        dir = self.settings.each_replica(_cycle=0, _replica=1)
-        cmd_cp = f"cp {self.settings.structure} {dir}/input{extension}"
+        extension = Path(self.settings.structure_back).suffix
+
+        # fore
+        dir = self.settings.each_replica(_cycle=0, _direction="fore", _replica=1)
+        cmd_cp = f"cp {self.settings.structure_fore} {dir}/input{extension}"
         res_cp = subprocess.run(cmd_cp, shell=True)
         if res_cp.returncode != 0:
             LOGGER.error("error occurred at cp command")
             LOGGER.error(f"check the authority of {dir}/")
             exit(1)
+
+        # back
+        dir = self.settings.each_replica(_cycle=0, _direction="back", _replica=1)
+        cmd_cp = f"cp {self.settings.structure_back} {dir}/input{extension}"
+        res_cp = subprocess.run(cmd_cp, shell=True)
+        if res_cp.returncode != 0:
+            LOGGER.error("error occurred at cp command")
+            LOGGER.error(f"check the authority of {dir}/")
+            exit(1)
+
         tmp = self.settings.n_replica
         self.settings.n_replica = 1
         # create version file of pacstk
@@ -114,14 +126,28 @@ class Cycle:
 
         next_cycle_dir = Path(f"{self.settings.each_cycle(_cycle=cycle + 1)}")
         make_dir(next_cycle_dir / "summary")
-        for rep in range(1, replica + 1):
-            make_dir(next_cycle_dir / f"replica{rep:03}")
+        for direction in ["fore", "back"]:
+            self.prepare_next_direction(
+                cycle=cycle, direction=direction, replica=replica
+            )
 
-        cmd_touch = f"touch {next_cycle_dir}/summary/progress.log"
+    def prepare_next_direction(self, cycle: int, direction: str, replica: int) -> None:
+        def make_dir(path: Path) -> None:
+            if not path.exists():
+                path.mkdir(parents=True)
+
+        next_direction_dir = Path(
+            f"{self.settings.each_direction(_cycle=cycle + 1, _direction=direction)}"
+        )
+        make_dir(next_direction_dir / "summary")
+        for rep in range(1, replica + 1):
+            make_dir(next_direction_dir / f"replica{rep:03}")
+
+        cmd_touch = f"touch {next_direction_dir}/summary/progress.log"
         res_touch = subprocess.run(cmd_touch, shell=True)
         if res_touch.returncode != 0:
             LOGGER.error("error occurred at touch command")
-            LOGGER.error(f"check authority of {next_cycle_dir}/summary/")
+            LOGGER.error(f"check authority of {next_direction_dir}/summary/")
             exit(1)
 
     def run_md(self) -> None:
@@ -129,7 +155,9 @@ class Cycle:
         # self.simulator.run_serial(self.settings, self.cycle)
 
     def calculate_cv(self) -> None:
-        self.results = self.analyzer.analyze(self.settings, self.cycle)
+        self.results_fore, self.results_back = self.analyzer.analyze(
+            self.settings, self.cycle
+        )
 
     def export(self) -> None:
         self.exporter.export(self.settings, self.cycle)
@@ -159,5 +187,5 @@ class Cycle:
 
     def meet_threshold(self) -> bool:
         return self.cycle == self.settings.max_cycle or self.analyzer.is_threshold(
-            self.settings, self.results
+            self.settings, self.results_fore, self.results_back
         )
