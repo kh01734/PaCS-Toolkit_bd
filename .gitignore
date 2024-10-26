@@ -166,3 +166,4 @@ inputs
 docs/book/
 MSM/*_test.ipynb
 test/
+*.ipynb
