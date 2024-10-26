@@ -53,8 +53,7 @@ class SuperSimulator(metaclass=ABCMeta):
                 i * n_parallel : min((i + 1) * n_parallel, rest)
             ]:
                 process = mp.Process(
-                    target=self.run_md, 
-                    args=(settings, cycle, direction, replica)
+                    target=self.run_md, args=(settings, cycle, direction, replica)
                 )
                 processes.append(process)
                 process.start()
